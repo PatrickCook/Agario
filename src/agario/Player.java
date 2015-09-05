@@ -9,7 +9,7 @@ package agario;
  *
  * @author patrickcook
  */
-public class Circle extends Shape{
+public class Player extends Shape{
     //default size at beginning
     private final int defaultRadius = 20;
     //radius that grows as game continues
@@ -24,4 +24,8 @@ public class Circle extends Shape{
         else 
             return defaultRadius;
     }
+    public void increaseRadius(){
+        radius++;
+    }
+    
 }
