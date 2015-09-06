@@ -12,6 +12,8 @@ import java.awt.Graphics2D;
 import javax.swing.*;
 import java.awt.event.*;
 import java.util.ArrayList;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  *
@@ -26,6 +28,19 @@ public class AgarioMain extends JFrame {
     private Background bg;
     private ArrayList<Food> foodArray;
     private CollisionHandler collisionHandler;
+    
+    //for calculating FPS
+    long framerate = 1000 / 60;
+    // time the frame began. Edit the second value (60) to change the prefered FPS (i.e. change to 50 for 50 fps)
+    long frameStart;
+    // number of frames counted this second
+    long frameCount = 0;
+    // time elapsed during one frame
+    long elapsedTime;
+    // accumulates elapsed time over multiple frames
+    long totalElapsedTime = 0;
+    // the actual calculated framerate reported
+    long reportedFramerate = 0;
 
     public AgarioMain() {
         //creates JFrame 
@@ -113,14 +128,18 @@ public class AgarioMain extends JFrame {
             canvas.drawImage(bg.getImg(), bg.getX(), bg.getY(), this);
 
             foodArray = collisionHandler.calcCollisions(foodArray, player, centerX, centerY, bg);
+            
             //draw food
             for (Food f : foodArray) {
-                canvas.setColor(f.getRandomColor());
+                canvas.setColor(f.getColor());
                 canvas.fillOval(f.getX(), f.getY(), f.getRadius(), f.getRadius());
             }
 
             canvas.setColor(Color.GREEN);
             canvas.fillOval(centerX, centerY, player.getRadius(), player.getRadius());
+
+            
+
             repaint();
         }
 

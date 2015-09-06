@@ -14,6 +14,8 @@ public class Player extends Shape{
     private final int defaultRadius = 20;
     //radius that grows as game continues
     private int radius = 20;
+    private int x = 400;
+    private int y = 320;
     
     public void move(){}
     
@@ -27,5 +29,8 @@ public class Player extends Shape{
     public void increaseRadius(){
         radius++;
     }
+    public int getX(){ return x;}
+    public int getY(){ return y;}
+    
     
 }

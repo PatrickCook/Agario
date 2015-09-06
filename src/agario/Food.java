@@ -12,25 +12,16 @@ import java.util.Random;
  *
  * @author patrickcook
  */
-public class Food  extends BackgroundObject{
-    private int radius;
+public class Food extends Circle {
 
+    private Color color;
     private Random rand;
-    public Food (){
-        super();
-        rand = new Random();
-        x = (int)(Math.random() * 2499)+1;
-        y = (int)(Math.random() * 2499)+1;
+
+    public Food() {
+        color = super.getColor();
+        x = (int) (Math.random() * 2499) + 1;
+        y = (int) (Math.random() * 2499) + 1;
         radius = 10;
     }
-    public Color getRandomColor(){
-            float r = rand.nextFloat();
-            float g = rand.nextFloat();
-            float b = rand.nextFloat();
-            return new Color(r,g,b);
-    }
-  
-    public int getRadius(){
-        return radius;
-    }
+
 }
