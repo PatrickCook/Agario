@@ -9,28 +9,8 @@ package agario;
  *
  * @author patrickcook
  */
-public class Player extends Shape{
-    //default size at beginning
-    private final int defaultRadius = 20;
-    //radius that grows as game continues
-    private int radius = 20;
-    private int x = 400;
-    private int y = 320;
-    
-    public void move(){}
-    
-    //Return radius if it is bigger than the defaultRadius
-    public int getRadius(){
-        if (radius > defaultRadius)
-            return radius;
-        else 
-            return defaultRadius;
-    }
-    public void increaseRadius(){
-        radius++;
-    }
-    public int getX(){ return x;}
-    public int getY(){ return y;}
-    
-    
+public class Player extends GameProp{
+   public Player (int x, int y){
+       super(x,y,20);
+   }   
 }

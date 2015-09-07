@@ -10,24 +10,23 @@ import java.io.IOException;
 import javax.imageio.ImageIO;
 
 /**
- *
  * @author patrickcook
  */
-public class Background extends BackgroundObject{
-
+public class Background extends GameProp{
+    final int width = 5000;
+    final int height = 5000;;
     private BufferedImage playerImg;
-    private double x, y, translateX, translateY, speedRate;
 
     public Background() {
-        
+        x = 0;
+        y = 0;
+        speedRate = 5*Math.pow(Math.E, 0);
         try {
             playerImg = ImageIO.read(Background.class.getResourceAsStream("/res/grid.jpg"));
         } catch (IOException e) {
         }
     }
-
-    public BufferedImage getImg() {
-        return playerImg;
-    }
+    public BufferedImage getImg() { return playerImg; }
 
 }
+

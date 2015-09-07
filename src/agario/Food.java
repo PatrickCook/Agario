@@ -4,18 +4,11 @@
  * and open the template in the editor.
  */
 package agario;
-
-import java.awt.Color;
-import java.util.Random;
-
 /**
  *
  * @author patrickcook
  */
-public class Food extends Circle {
-
-    private Color color;
-    private Random rand;
+public class Food extends GameProp {
 
     public Food() {
         color = super.getColor();

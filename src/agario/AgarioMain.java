@@ -5,15 +5,14 @@
  */
 package agario;
 
-import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.RenderingHints;
 import javax.swing.*;
 import java.awt.event.*;
 import java.util.ArrayList;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import java.util.Iterator;
 
 /**
  *
@@ -27,20 +26,9 @@ public class AgarioMain extends JFrame {
     private Player player;
     private Background bg;
     private ArrayList<Food> foodArray;
-    private CollisionHandler collisionHandler;
-    
-    //for calculating FPS
-    long framerate = 1000 / 60;
-    // time the frame began. Edit the second value (60) to change the prefered FPS (i.e. change to 50 for 50 fps)
-    long frameStart;
-    // number of frames counted this second
-    long frameCount = 0;
-    // time elapsed during one frame
-    long elapsedTime;
-    // accumulates elapsed time over multiple frames
-    long totalElapsedTime = 0;
-    // the actual calculated framerate reported
-    long reportedFramerate = 0;
+    public boolean gameRunning = false;
+    public long lastFpsTime = 0;
+    public int fps = 0;
 
     public AgarioMain() {
         //creates JFrame 
@@ -48,12 +36,11 @@ public class AgarioMain extends JFrame {
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setSize(600, 800);
         setResizable(false);
-        setContentPane(new GameCanvas());
+        GameCanvas gamePanel = new GameCanvas();
+        setContentPane(gamePanel);
         pack();
         setVisible(true);
         addKeyListener(new TAdapter());
-
-        collisionHandler = new CollisionHandler();
 
         foodArray = new ArrayList<Food>();
         //add 100 food to map
@@ -67,6 +54,8 @@ public class AgarioMain extends JFrame {
          new BufferedImage(3, 3, BufferedImage.TYPE_INT_ARGB), new Point(0, 0),
          "null"));
          */
+        gameRunning = true;
+        gamePanel.gameLoop();
     }
 
     public class GameCanvas extends JPanel implements MouseMotionListener {
@@ -78,7 +67,7 @@ public class AgarioMain extends JFrame {
             centerY = height / 2;
             centerX = width / 2;
 
-            player = new Player();
+            player = new Player(centerX, centerY);
             bg = new Background();
 
             addMouseMotionListener(this);
@@ -91,6 +80,7 @@ public class AgarioMain extends JFrame {
          *
          * @param evt
          */
+        @Override
         public synchronized void mouseMoved(MouseEvent evt) {
             //get position of mouse
             double mouseX = (evt.getX() - centerX);
@@ -101,52 +91,102 @@ public class AgarioMain extends JFrame {
                 double angle = Math.atan2(mouseY, mouseX);
                 double addX = Math.cos(angle);
                 double addY = Math.sin(angle);
-                bg.setTranslate(-addX, addY);
-                for (Food f : foodArray) {
-                    f.setTranslate(-addX, addY);
-                }
+                GameProp.addX = -addX;
+                GameProp.addY = addY;
             }
-            // schedule a repaint.
-            repaint();
         }
 
+        public void gameLoop() {
+            long lastLoopTime = System.nanoTime();
+            final int TARGET_FPS = 60;
+            final long OPTIMAL_TIME = 1000000000 / TARGET_FPS;
+
+            // keep looping round til the game ends
+            while (gameRunning) {
+                // work out how long its been since the last update, this
+                // will be used to calculate how far the entities should
+                // move this loop
+                long now = System.nanoTime();
+                long updateLength = now - lastLoopTime;
+                lastLoopTime = now;
+                double delta = updateLength / ((double) OPTIMAL_TIME);
+
+                // update the frame counter
+                lastFpsTime += updateLength;
+                fps++;
+
+                // update our FPS counter if a second has passed since
+                // we last recorded
+                if (lastFpsTime >= 1000000000) {
+                    System.out.println("(FPS: " + fps + ")");
+                    lastFpsTime = 0;
+                    fps = 0;
+                }
+                //update game
+                updateGame();
+                //render game
+                repaint();
+                // we want each frame to take 10 milliseconds, to do this
+                // we've recorded when we started the frame. We add 10 milliseconds
+                // to this and then factor in the current time to give 
+                // us our final value to wait for
+                // remember this is in ms, whereas our lastLoopTime etc. vars are in ns.
+                try {
+                    Thread.sleep((lastLoopTime - System.nanoTime() + OPTIMAL_TIME) / 1000000);
+                } catch (Exception e) {
+                }
+            }
+        }
+        public void updateGame(){
+            //update all calculations from paint method
+            bg.translate();
+            //calculates collisions
+            calcCollisions();
+            //translate food
+            for (Food f : foodArray) {
+                f.translate();     
+            }
+        }
+
+        /*
+         * All game drawing is done here. This includes changing colors, positions of objects and painting.
+         */
         @Override
         public void paint(Graphics g) {
             super.paint(g);
             Graphics2D canvas = (Graphics2D) g;
-            /*
-             * All game drawing is done here. This includes changing colors, positions of objects and painting.
-             */
-            canvas.setColor(Color.GREEN);
-            //moves background
-            for (Food f : foodArray) {
-                f.translate();
-            }
-            bg.translate();
 
-            //draw background
+            //moves background      
             canvas.drawImage(bg.getImg(), bg.getX(), bg.getY(), this);
 
-            foodArray = collisionHandler.calcCollisions(foodArray, player, centerX, centerY, bg);
-            
             //draw food
             for (Food f : foodArray) {
                 canvas.setColor(f.getColor());
                 canvas.fillOval(f.getX(), f.getY(), f.getRadius(), f.getRadius());
             }
-
-            canvas.setColor(Color.GREEN);
+            //draw player
+            canvas.setColor(player.getColor());
             canvas.fillOval(centerX, centerY, player.getRadius(), player.getRadius());
 
-            
-
-            repaint();
         }
 
+        public void calcCollisions() {
+            int newFood = 0;
+            Iterator<Food> it = foodArray.iterator();
+            while (it.hasNext()) {
+                if (player.collides(player, it.next())) {
+                    newFood++;
+                    it.remove();
+                    bg.decreaseSpeed(player.getRadius());
+                    player.increaseRadius();
+                }
+            }
+            for (int i = 0; i <= newFood;i++)
+                foodArray.add(new Food());
+            newFood = 0;
+        }
         @Override
-        public void mouseDragged(MouseEvent e) {
-
-        }
+        public void mouseDragged(MouseEvent e) {}
 
     }
 
@@ -162,7 +202,7 @@ public class AgarioMain extends JFrame {
     }
 
     public static void main(String[] args) {
-        JFrame game = new AgarioMain();
+        AgarioMain game = new AgarioMain();
     }
 
 }

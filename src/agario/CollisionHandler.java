@@ -41,7 +41,6 @@ public class CollisionHandler {
             if (distance <= (r1 + r2) * (r1 + r2)) {
                 removeFood.add(f);
                 p.increaseRadius();
-                bg.decreaseSpeed();
             }
 
         }
