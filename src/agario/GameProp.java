@@ -50,8 +50,8 @@ public class GameProp {
         y += addY * speedRate;
     }
     public void decreaseSpeed(double radius) {
-        
-        speedRate = 5 * Math.pow(Math.E, -((radius-20)/50));
+        //gradual speed decay graph
+        speedRate = 7 * Math.pow(Math.E, -((radius-20)/100));
     }
     /**
      * Checks collision between two circles
@@ -61,8 +61,8 @@ public class GameProp {
     public boolean collides(GameProp c1, GameProp c2){
         //adding half of the radius to x and y to make x and y 
         //the center of the circle instead of top left corner
-        double dx = (c1.x+(c1.radius/4)) - (c2.x+(c2.radius/4));
-        double dy = (c1.y+(c1.radius/4)) - (c2.y+(c2.radius/4));
+        double dx = c1.x - c2.x;
+        double dy = c1.y - c2.y;
         double distance = dx * dx + dy * dy;
         float radiusSum = c1.radius/2 + c2.radius/2;
         return distance < radiusSum * radiusSum;
