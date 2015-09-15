@@ -1,104 +1,63 @@
 package networking;
 
-
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import java.io.BufferedReader;
+import agario.Player;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
+import java.io.InputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.net.Socket;
-
-import javax.swing.JFrame;
+import java.net.UnknownHostException;
+import java.util.ArrayList;
 import javax.swing.JOptionPane;
-import javax.swing.JScrollPane;
-import javax.swing.JTextArea;
-import javax.swing.JTextField;
 
 
-public class Client {
-
-    private BufferedReader in;
-    private PrintWriter out;
-    private JFrame frame = new JFrame("Capitalize Client");
-    private JTextField dataField = new JTextField(40);
-    private JTextArea messageArea = new JTextArea(8, 60);
-
-    /**
-     * Constructs the client by laying out the GUI and registering a
-     * listener with the textfield so that pressing Enter in the
-     * listener sends the textfield contents to the server.
-     */
-    public Client() {
-
-        // Layout GUI
-        messageArea.setEditable(false);
-        frame.getContentPane().add(dataField, "North");
-        frame.getContentPane().add(new JScrollPane(messageArea), "Center");
-
-        // Add Listeners
-        dataField.addActionListener(new ActionListener() {
-            /**
-             * Responds to pressing the enter key in the textfield
-             * by sending the contents of the text field to the
-             * server and displaying the response from the server
-             * in the text area.  If the response is "." we exit
-             * the whole application, which closes all sockets,
-             * streams and windows.
-             */
-            public void actionPerformed(ActionEvent e) {
-                out.println(dataField.getText());
-                   String response;
-                try {
-                    response = in.readLine();
-                    if (response == null) {
-                         System.exit(0);
-                      }
-                } catch (IOException ex) {
-                       response = "Error: " + ex;
-                }
-                messageArea.append(response + "\n");
-                dataField.selectAll();
-            }
-        });
-    }
-
-    /**
-     * Implements the connection logic by prompting the end user for
-     * the server's IP address, connecting, setting up streams, and
-     * consuming the welcome messages from the server.  The Capitalizer
-     * protocol says that the server sends three lines of text to the
-     * client immediately after establishing a connection.
-     */
-    public void connectToServer() throws IOException {
-
-        // Get the server address from a dialog box.
+public class Client  {
+    public ObjectOutputStream out;
+    public ObjectInputStream in;
+    public Client(int port) throws UnknownHostException, IOException{
+        /*
         String serverAddress = JOptionPane.showInputDialog(
-            frame,
+            null,
             "Enter IP Address of the Server:",
             "Welcome to the Agar.io",
             JOptionPane.QUESTION_MESSAGE);
-
-        // Make connection and initialize streams
-        Socket socket = new Socket(serverAddress, 4444);
-        in = new BufferedReader(
-                new InputStreamReader(socket.getInputStream()));
-        out = new PrintWriter(socket.getOutputStream(), true);
-
-        // Consume the initial welcoming messages from the server
-        for (int i = 0; i < 3; i++) {
-            messageArea.append(in.readLine() + "\n");
+                */
+        //this.ID = id;
+        connect("localhost", port);
+    }
+    
+    public void send(Object message) throws IOException {
+        if(out == null) throw new IOException();
+        out.writeObject(message);
+        out.reset();
+        out.flush();
+    }
+    
+    public Object receive() throws IOException{
+        try {
+            ArrayList<Player> p = (ArrayList<Player>) in.readObject();
+            System.out.println(p);
+            return p;
+        } catch (ClassNotFoundException e) {
+            throw new IOException();
         }
     }
 
-    /**
-     * Runs the client application.
-     */
-    public static void main(String[] args) throws Exception {
-        Client client = new Client();
-        client.frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        client.frame.pack();
-        client.frame.setVisible(true);
-        client.connectToServer();
+    public void connect(String ip, int port) throws UnknownHostException, IOException {
+        Socket socket = new Socket(ip, port);
+        out = new ObjectOutputStream(socket.getOutputStream());
+        InputStream is = socket.getInputStream();
+        in = new ObjectInputStream(is);
+    }
+    public void reconnect(String ip, int port)  {
+        try {
+            Socket socket = new Socket(ip, port);
+            out = new ObjectOutputStream(socket.getOutputStream());
+            InputStream is = socket.getInputStream();
+            in = new ObjectInputStream(is);
+        } catch (IOException ex) {
+            JOptionPane.showMessageDialog(null, "Couldn't reconnect. Now closing.");
+            System.exit(1);
+        }
     }
 }

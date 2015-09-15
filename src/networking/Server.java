@@ -1,111 +1,141 @@
 package networking;
 
-import java.io.BufferedReader;
+import agario.Log;
+import agario.Player;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.ConcurrentModificationException;
+import java.util.List;
 
 /**
- * A server program which accepts requests from clients to
- * capitalize strings.  When clients connect, a new thread is
- * started to handle an interactive dialog in which the client
- * sends in a string and the server thread sends back the
- * capitalized version of the string.
+ * This server handles all connections with clients
  *
- * The program is runs in an infinite loop, so shutdown in platform
- * dependent.  If you ran it from a console window with the "java"
- * interpreter, Ctrl+C generally will shut it down.
+ * @author patrickcook
  */
 public class Server {
-    
+
+    List<ObjectOutputStream> clientstreams;
+    ArrayList<Player> clients;
+    private int numClients = 0;
+    private final int PORT = 4444;
+
     /**
-     * Application method to run the server runs in an infinite loop
-     * listening on port 9898.  When a connection is requested, it
-     * spawns a new thread to do the servicing and immediately returns
-     * to listening.  The server keeps a unique client number for each
-     * client that connects just to show interesting logging
-     * messages.  It is certainly not necessary to do this.
+     * Starts server and then calls the method to wait for clients to connect
      */
-    public static void main(String[] args) throws Exception {
-        final int port = 4444;
-        int clientNumber = 0;
-        
-        System.out.println("Server has started");
-        ServerSocket listener = new ServerSocket(port);
+    public Server() {
         try {
-            while (true) {
-                System.out.println("Waiting for client to connect.");
-                new Handler(listener.accept(), clientNumber++).start();
-            }
-        } finally {
-            listener.close();
+            clientstreams = Collections.synchronizedList(new ArrayList<ObjectOutputStream>());
+            clients = new ArrayList<Player>();
+            Log.l("Starting server...");
+            ServerSocket mySocket = new ServerSocket(PORT);
+            waitForClients(mySocket);
+        } catch (IOException e) {
+            Log.l("Unable to start.");
+            e.printStackTrace();
         }
     }
 
     /**
-     * A private thread to handle  requests on a particular
-     * socket.  The client terminates the dialogue by sending a single line
-     * containing only a period.
+     * Waits for clients to connect. Upon connection an output stream is created
+     * and added to an arraylist of outputstreams. Then a null player is added
+     * the clients arraylist and finally
+     *
+     * @param mySocket
      */
-    private static class Handler extends Thread {
-        private Socket socket;
-        private int clientNumber;
-
-        public Handler(Socket socket, int clientNumber) {
-            this.socket = socket;
-            this.clientNumber = clientNumber;
-            log("New connection with client# " + clientNumber + " at " + socket);
-        }
-
-        /**
-         * Services this thread's client by first sending the
-         * client a welcome message then repeatedly reading strings
-         * and sending back the capitalized version of the string.
-         */
-        public void run() {
+    private void waitForClients(ServerSocket mySocket) {
+        while (true) {
             try {
-
-                // Decorate the streams so we can send characters
-                // and not just bytes.  Ensure output is flushed
-                // after every newline.
-                BufferedReader in = new BufferedReader(
-                        new InputStreamReader(socket.getInputStream()));
-                PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
-
-                // Send a welcome message to the client.
-                //USE THIS OUT TO SEND MESSAGE TO CLIENT
-                out.println("Hello, you are client #" + clientNumber + ".");
-                out.println("You have connected to add=/"+ "localhost"+ "port=/"+ socket.getPort());
-
-                // Get messages from the client, line by line; return them
-                // capitalized
-                while (true) {
-                    String input = in.readLine();
-                    if (input == null) {
-                        break;
-                    }
-                    out.println();
-                }
+                Log.l("Ready to connect to clients");
+                Socket client = mySocket.accept();
+                numClients++;
+                clientstreams.add(new ObjectOutputStream(client.getOutputStream()));
+                //adds a player to client so that the array list isnt empty when setting an object later
+                Log.l(client.getInetAddress().getHostAddress() + " connected to the Server");
+                Thread t = new Thread(new ClientHandler(client, clientstreams.size() - 1));
+                t.start();
             } catch (IOException e) {
-                log("Error handling client# " + clientNumber + ": " + e);
-            } finally {
-                try {
-                    socket.close();
-                } catch (IOException e) {
-                    log("Couldn't close a socket, what's going on?");
-                }
-                log("Connection with client# " + clientNumber + " closed");
+                // TODO Auto-generated catch block
+                e.printStackTrace();
             }
         }
+    }
 
-        /**
-         * Logs a simple message.  In this case we just write the
-         * message to the server applications standard output.
-         */
-        private void log(String message) {
-            System.out.println(message);
+    public void shareToAll(Object objectToShare) {
+        synchronized (clientstreams) {
+            for (ObjectOutputStream stream : clientstreams) {
+                try {
+                    stream.writeObject(objectToShare);
+                    stream.reset();
+                    stream.flush();
+
+                } catch (IOException e) {
+                    Log.l("Couldnt ");
+                }
+            }
         }
+        Log.l("Server sent data.");
+    }
+
+    private class ClientHandler implements Runnable {
+
+        Socket clientSocket;
+        final int id;
+        ObjectInputStream ois;
+
+        public ClientHandler(Socket clientSocket, int id) {
+            this.clientSocket = clientSocket;
+            this.id = id;
+            try {
+                ois = new ObjectInputStream(clientSocket.getInputStream());
+                clients.add((Player) ois.readObject());
+            } catch (IOException ex) {
+                Log.e("Failed to recieve client's player.");
+            } catch (ClassNotFoundException ex) {
+            }
+
+        }
+
+        @Override
+        public void run() {
+            while (true) {
+                try {
+                    Player p = (Player) ois.readObject();
+                    if (p != null) {
+                        clients.set(id, p);
+                    } else {
+                        Log.e("Client " + id + " is null.");
+                    }
+                    Log.l("Server recieved data.");
+                    shareToAll(clients);
+                } catch (ClassNotFoundException e) {
+                    Log.e("ClassNotFoundException");
+                    break;
+                } catch (IOException e) {
+                    Log.e("Client "+ id+ " has disconnected.");
+                    disconnect();
+                    break;
+                } 
+            }
+        }
+        public void disconnect(){
+            try {
+                clientSocket.close();
+                clients.remove(clients.get(id));
+                clientstreams.remove(clientSocket);
+                numClients--;
+                
+            } catch (IOException ex) {}
+        }
+
+    }
+
+    public static void main(String[] args) {
+        Server gameServer = new Server();
+
     }
 }

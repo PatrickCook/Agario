@@ -4,30 +4,29 @@
  * and open the template in the editor.
  */
 package agario;
-
 /**
  *
  * @author patrickcook
  */
-public class Player extends GameProp{
+public class Player extends GameProp {
+
     private String name;
-    private int virtX, virtY;
-   public Player (int x, int y){
-       super(x,y,30);
-       name = "";
-   }   
-   public void setName(String str){
-       name = str;
-   }
-   public String getName(){
-       return name;
-   }
-   public int getVirtX(Background bg){
-       virtX = 400 - bg.getX();
-       return virtX;
-   }
-   public int getVirtY(Background bg){
-       virtY = 320 - bg.getY();
-       return virtY;
-   }
+
+    public Player() {
+        this.x = 400;
+        this.y = 320;
+        name = "";
+    }
+    public void update(Background bg){
+        x = 400 - bg.getX();
+        y = 320 - bg.getY();
+    }
+    public void setName(String str) {
+        name = str;
+    }
+
+    public String getName() {
+        return name;
+    }
+
 }

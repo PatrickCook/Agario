@@ -18,8 +18,8 @@ public class Background extends GameProp{
     private BufferedImage playerImg;
 
     public Background() {
-        x = 0;
-        y = 0;
+        this.x = 0;
+        this.y = 0;
         speedRate = 5*Math.pow(Math.E, 0);
         try {
             playerImg = ImageIO.read(Background.class.getResourceAsStream("/res/grid.jpg"));

@@ -5,6 +5,7 @@
  */
 package agario;
 
+import networking.Client;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
@@ -15,15 +16,10 @@ import javax.swing.*;
 import java.awt.event.*;
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.io.PrintWriter;
-import java.net.Socket;
 import java.util.ArrayList;
 import java.util.Iterator;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import java.util.List;
 
 /**
  *
@@ -40,12 +36,14 @@ public class AgarioMain extends JFrame {
     public boolean gameRunning;
     public long lastFpsTime = 0;
     public int fps = 0;
-    
+
     private final String host = "localhost";
-    private final int port = 4444;
+    private final int PORT = 4444;
     private BufferedReader in;
     private PrintWriter out;
+    private Client client;
 
+    private List<Player> clients = new ArrayList<>();
 
     public AgarioMain() {
         //creates JFrame 
@@ -63,11 +61,6 @@ public class AgarioMain extends JFrame {
                 //what todo when closed
             }
         });
-        try {
-            connectToServer();
-        } catch (IOException ex) {
-            System.out.println("Unable to connect to server.");
-        }
         //add 100 food to map
         foodArray = new ArrayList<>();
         for (int x = 0; x < 200; x++) {
@@ -75,32 +68,21 @@ public class AgarioMain extends JFrame {
         }
         //Gets user name
         String playerName = JOptionPane.showInputDialog(this, "Enter name:");
-        player.setName(playerName);
-       
+        if (playerName == null) System.exit(1);
+        else player.setName(playerName);
+        
+        
+        //Creates the client which connects to server
+        try {
+            client = new Client(PORT);
+            client.send(player);
+        } catch (IOException ex) {
+            Log.l("Error connecting to server.");
+        }
+
         //sets game to running
         gameRunning = true;
         gamePanel.gameLoop();
-    }
-    /**
-     * Connects client to server.
-     * @throws IOException 
-     */
-    public void connectToServer() throws IOException {
-
-        // Get the server address from a dialog box.
-        String serverAddress = JOptionPane.showInputDialog(
-            this,
-            "Enter IP Address of the Server:",
-            "Welcome to the Agar.io",
-            JOptionPane.QUESTION_MESSAGE);
-
-        // Make connection and initialize streams
-        Socket socket = new Socket(serverAddress, port);
-        in = new BufferedReader(
-                new InputStreamReader(socket.getInputStream()));
-        out = new PrintWriter(socket.getOutputStream(), true);
-
-        
     }
 
     public class GameCanvas extends JPanel implements MouseMotionListener {
@@ -115,9 +97,9 @@ public class AgarioMain extends JFrame {
             //calculates center of screen
             centerY = height / 2;
             centerX = width / 2;
-
-            player = new Player(centerX, centerY);
             bg = new Background();
+            player = new Player();
+            
 
         }
 
@@ -146,11 +128,11 @@ public class AgarioMain extends JFrame {
                     fps = 0;
                 }
                 //update game
-                //updateGame();
+                updateGame();
                 //send data to server
                 updateServer();
                 //render game
-                //repaint();
+                repaint();
                 // we want each frame to take 10 milliseconds, to do this
                 // we've recorded when we started the frame. We add 10 milliseconds
                 // to this and then factor in the current time to give 
@@ -164,8 +146,9 @@ public class AgarioMain extends JFrame {
         }
 
         public void updateGame() {
-            //update all calculations from paint method
+            //update all calculations for paint method
             bg.translate();
+            player.update(bg);
             //calculates collisions
             calcCollisions();
             //translate food
@@ -175,19 +158,16 @@ public class AgarioMain extends JFrame {
         }
 
         public void updateServer() {
-                //this is what is sent to server
-                out.println("");
-                   String response;
-                try {
-                    //this is what comes back from server
-                    response = in.readLine();
-                    if (response == null || response.equals("")) {
-                          System.exit(0);
-                    }
-                } catch (IOException ex) {
-                       response = "Error: " + ex;
-                }
+            try {
+                client.send(player);
+                Log.l("Sent data to server.");
+                clients = (ArrayList<Player>)client.receive();
+                Log.l("Received data from server.");
+            } catch (IOException ex) {
+                Log.e("Attempting to reconnect.");
+                client.reconnect(host, PORT);
             }
+        }
         /*
          * All game drawing is done here. This includes changing colors, positions of objects and painting.
          */
@@ -196,6 +176,7 @@ public class AgarioMain extends JFrame {
         public void paint(Graphics g) {
             super.paint(g);
             Graphics2D canvas = (Graphics2D) g;
+            FontMetrics fontMetrics = canvas.getFontMetrics(defaultFont);
 
             //moves background      
             canvas.drawImage(bg.getImg(), bg.getX(), bg.getY(), this);
@@ -205,14 +186,33 @@ public class AgarioMain extends JFrame {
                 canvas.setColor(f.getColor());
                 canvas.fillOval(f.getX(), f.getY(), f.getRadius(), f.getRadius());
             }
+            System.out.println(clients);
+            //draws other players and their names
+            if (!clients.isEmpty()) {
+                for (Player p : clients) {
+                    
+                    //dont draw yourself
+                    if (!p.getName().equals(player.getName())) {
+                        canvas.setColor(p.getColor());
+                        drawCenteredCircle(canvas, bg.getX()+ p.getX(), bg.getY() + p.getY(), p.getRadius());
+                        canvas.setColor(Color.BLACK);
+                        //draw name
+                        int nameCenter = (fontMetrics.stringWidth(p.getName())) / 2;
+                        canvas.setFont(defaultFont);
+                        canvas.drawString(p.getName(), p.getX() - nameCenter, p.getY()+5);
+                    }
+                }
+            } else {
+                Log.e("No other players");
+            }
+
             //draw player 
             canvas.setColor(new Color(0, 204, 0));
             drawCenteredCircle(canvas, centerX, centerY, (int) (1.25 * player.getRadius()));
             canvas.setColor(Color.GREEN);
             drawCenteredCircle(canvas, centerX, centerY, player.getRadius());
             canvas.setColor(Color.BLACK);
-
-            FontMetrics fontMetrics = canvas.getFontMetrics(defaultFont);
+            //draw player name         
             int nameCenter = (fontMetrics.stringWidth(player.getName())) / 2;
             canvas.setFont(defaultFont);
             canvas.drawString(player.getName(), centerX - nameCenter, centerY + 5);
@@ -249,7 +249,7 @@ public class AgarioMain extends JFrame {
             int newFood = 0;
             Iterator<Food> it = foodArray.iterator();
             while (it.hasNext()) {
-                if (player.collides(player, it.next())) {
+                if (player.collides(it.next(),player)) {
                     newFood++;
                     it.remove();
                     bg.decreaseSpeed(player.getRadius());
@@ -267,6 +267,7 @@ public class AgarioMain extends JFrame {
             y = y - (r / 2);
             g.fillOval(x, y, r, r);
         }
+
         @Override
         public void mouseDragged(MouseEvent e) {
         }
